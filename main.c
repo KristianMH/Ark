@@ -31,8 +31,9 @@ int main() {
 
   printf("Skriv dit navn: ");
   // gets(name); // Brug ALDRIG gets. Brug fgets i stedet:
-  fgets(name, 8, stdin);
-  printf("Hej %s!\n", name);
+  fgets(name, sizeof(name), stdin);
+  printf("%s\n", name);
+  printf("Hej %s !\n", name);
 
   printf("Her er et tal: %x\n", x);
 
