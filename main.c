@@ -25,17 +25,14 @@
 
 int main() {
   int x = 5;
-  char name[8];
+  char name[32];
 
   printf("Hej!\n");
 
   printf("Skriv dit navn: ");
   // gets(name); // Brug ALDRIG gets. Brug fgets i stedet:
-  fgets(name, sizeof(name), stdin);
-  printf("%s\n", name);
-  printf("Hej %s !\n", name);
-
+  fgets(name, 32, stdin);
+  printf("Hej %s!\n", name);
   printf("Her er et tal: %x\n", x);
-
   return 42;
 }
