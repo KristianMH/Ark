@@ -1,8 +1,14 @@
-.PHONY: all clean
-CC=gcc
+CC=gcc 
 CFLAGS=-Werror -Wall -Wextra -pedantic -std=c11
-sim: mips32.h sim.c
+
+SUBDIRS := $(wildcard */.)
+all: $(SUBDIRS) 
+$(SUBDIRS):
+	 $(MAKE) -C $@
+
+sim: mips32.h sim.c 
 	$(CC) $(CFLAGS) -o sim sim.c
-all: sim
-clean:
-	rm -f sim
+clean: 
+	rm -f sim 
+
+.PHONY: all $(SUBDIRS) clean
