@@ -5,13 +5,13 @@
 
 #define ERROR_INVALID_ARGS 1
 #define ERROR_IO_ERROR 2
-
-#define MEMSZ sizeof mem;
+#define MEMSZ sizeof(mem)
 
 static uint32_t PC = 0;
 static uint32_t regs[32];
 static size_t instr_cnt = 0;
-static unsigned char mem[640];
+static unsigned char mem[640*1024];
+
 
 int show_status(){
   printf("Executed %zu instruction(s).\n", instr_cnt); 
@@ -38,7 +38,6 @@ int read_config_stream(FILE *file){
       return 1;
     }
     regs[i] = v;
-    printf("%d\n", v);
   }
 
   if (fclose(file) != 0){
@@ -68,9 +67,11 @@ int main(int argc, char *argv[]){
     printf("Insufficient arguments\n");
     return ERROR_INVALID_ARGS;
   }
+   if (elf_dump(argv[2], &PC, &mem[0], MEMSZ) != 0){
+     return 0;
+   }
    show_status();
-   elf_dump(argv[2], &PC, &mem[0], MEMSZ);
-
-   return 0;
+   printf("%x\n",PC);
+      return 0;
 }
 
