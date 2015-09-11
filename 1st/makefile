@@ -1,18 +1,17 @@
 CC=gcc 
 CFLAGS=-Werror -Wall -Wextra -pedantic -std=c11
-
-SUBDIRS := $(wildcard */.)
-all: $(SUBDIRS) 
-$(SUBDIRS):
-	 $(MAKE) -C $@
+all: sim
 
 sim: mips32.h sim.c 
+	echo "Compiling simulator"
+	$(MAKE) -C asm
+	$(MAKE) -C c 
 	$(CC) $(CFLAGS) -o sim sim.c
 
-clean: $(SUBDIRSCLEAN)
+clean:
+	$(MAKE) -C asm clean
+	$(MAKE) -C c clean
 	rm -f sim
-$(SUBDIRSCLEAN):
-	 $(MAKE) -C $@ clean
+	echo "Folder is cleaned"
 
-
-.PHONY: all $(SUBDIRS) clean
+.PHONY: all clean 
