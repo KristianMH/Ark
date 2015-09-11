@@ -8,7 +8,11 @@ $(SUBDIRS):
 
 sim: mips32.h sim.c 
 	$(CC) $(CFLAGS) -o sim sim.c
-clean: 
-	rm -f sim 
+
+clean: $(SUBDIRSCLEAN)
+	rm -f sim
+$(SUBDIRSCLEAN):
+	 $(MAKE) -C $@ clean
+
 
 .PHONY: all $(SUBDIRS) clean
