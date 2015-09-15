@@ -7,7 +7,7 @@
 #define ERROR_INVALID_ARGS 1
 #define ERROR_IO_ERROR 2
 #define ERROR_UNKNOWN_OPCODE 3
-#define MEMSZ sizeof(mem)/sizeof(mem[0])
+#define MEMSZ 640*1024
 static uint32_t PC = 0;
 static uint32_t regs[32];
 static size_t instr_cnt = 0;
@@ -59,32 +59,17 @@ int read_config(const char *path) {
   return 0;
 }
 int intrp_r(uint32_t instr){
-  instr=instr;
-  return 1;
+  if (GET_FUNCT(instr) == FUNCT_SYSCALL) return 1;
+  return 4;
 
 }
 int interp_inst(uint32_t instr){
-  //get opcode by GET_UPCODE(instr) and do swicth case
+  //gets opcode by GET_UPCODE(instr) and do swicth case.r  
   switch(GET_OPCODE(instr)){
   case FUNCT_SYSCALL :
     return 1;
   case OPCODE_R:
     return intrp_r(instr);
-    //many other cases to be implemented
-  case OPCODE_J :
-    return 0;
-  case OPCODE_JAL :
-    return 0;
-  case OPCODE_BEQ:
-    return 0;
-  case OPCODE_BNE:
-    return 0;
-  case OPCODE_ADDIU:
-    return 0;
-  case OPCODE_SW:
-    return 0;
-  case OPCODE_LW:
-    return 0;
   default : 
     return ERROR_UNKNOWN_OPCODE;
   }
@@ -94,15 +79,18 @@ int interp_inst(uint32_t instr){
 int interp(){
   for (;;){
     instr_cnt ++;
-    int count = interp_inst(GET_BIGWORD(mem,PC)); // gets instr from PC in reg array (0)
+    int count = interp_inst(GET_BIGWORD(mem,PC)); // gets instr from PC in mem array
     if (count == 1){ //sees the syscall function;
       printf("hello this is the syscall function\n");
-      break;
+      return 0;
+    }
+    if (count == 4){ // temp for bugfixing
+      return 0;
     }
     if (count == ERROR_UNKNOWN_OPCODE){ //error occured eg. unsupported function
       return ERROR_UNKNOWN_OPCODE;
     }
-        
+    PC +=4;
   }
   return 0;
 }
@@ -118,13 +106,9 @@ int main(int argc, char *argv[]){
      if (elfreturn == 0){ 
        regs[29] = MIPS_RESERVE+MEMSZ-4;
        interp();
-       return show_status();
-       // implement initalize of stack-pointer.
-       // and call interp to read
      }
    }
-   
-   //note: BRUG GET_BIGWORD OG SET_BIGWORD, når der hentes/indsættes i mem   
+   return show_status();
 
 }
 
