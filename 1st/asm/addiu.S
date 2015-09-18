@@ -1,0 +1,3 @@
+addiu $v0, $t5, 20
+syscall
+	

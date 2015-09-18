@@ -7,6 +7,7 @@
 #define ERROR_INVALID_ARGS 1
 #define ERROR_IO_ERROR 2
 #define ERROR_UNKNOWN_OPCODE 3
+#define ERROR_UNKNOWN_FUNCT 4
 #define MEMSZ 640*1024
 static uint32_t PC = 0;
 static uint32_t regs[32];
@@ -39,9 +40,6 @@ int read_config_stream(FILE *file){
     regs[i] = v;
   }
 
-  if (fclose(file) != 0){
-    return ERROR_IO_ERROR;  
-  }
   return 0;
 }
 
@@ -53,28 +51,161 @@ int read_config(const char *path) {
     return ERROR_IO_ERROR;
   }
 
-  read_config_stream(fdesc);
-  
-  printf("Readfile!\n");
+  if (read_config_stream(fdesc) == 1){
+    printf("unsuccesfully initialized registers, check cfg file");
+    return ERROR_IO_ERROR;
+  }
+  if (fclose(fdesc) != 0) {
+    return ERROR_IO_ERROR;
+  }
+  return 0;
+}
+int addu(uint32_t instr){
+  regs[GET_RD(instr)] = regs[GET_RS(instr)]+regs[GET_RT(instr)];
+  return 0;
+}
+int addiu(uint32_t instr){
+  regs[GET_RT(instr)] = regs[GET_RS(instr)]+GET_IMM(instr);
+  return 0;
+}
+int bne(uint32_t instr){
+  if (regs[GET_RT(instr)] != regs[GET_RS(instr)]){
+    PC += (SIGN_EXTEND(GET_IMM(instr)) << 2)  ; 
+}
+  return 0;
+}
+int beq(uint32_t instr){
+   if (regs[GET_RT(instr)] == regs[GET_RS(instr)]){
+    PC += (SIGN_EXTEND(GET_IMM(instr)) << 2) ; 
+   }
+  return 0;
+}
+int subu(uint32_t instr){
+  regs[GET_RD(instr)] = regs[GET_RS(instr)]-regs[GET_RT(instr)];
+  return 0;
+}
+int slt(uint32_t instr){
+  regs[GET_RD(instr)] = regs[GET_RS(instr)] < regs[GET_RT(instr)] ? 1:0;
+  return 0;
+}
+int sll(uint32_t instr){
+  regs[GET_RD(instr)] = regs[GET_RT(instr)] << GET_SHAMT(instr);
+  return 0;
+}
+int srl(uint32_t instr){
+  regs[GET_RD(instr)] = regs[GET_RS(instr)] >> GET_SHAMT(instr);
+  return 0;
+}
+int slti(uint32_t instr){
+  regs[GET_RT(instr)] = regs[GET_RS(instr)] < GET_IMM(instr) ? 1:0;
+  return 0;      
+}
+int and(uint32_t instr){
+  regs[GET_RD(instr)] = regs[GET_RS(instr)] & regs[GET_RT(instr)];
+  return 0;
+}
+int or(uint32_t instr){
+  regs[GET_RD(instr)] = regs[GET_RS(instr)] | regs[GET_RT(instr)];
+  return 0;
+}
+int nor(uint32_t instr){
+  regs[GET_RD(instr)] = ~(regs[GET_RS(instr)] | regs[GET_RT(instr)]);
+  return 0;
+}
+int jump(uint32_t instr){
+  PC = (PC & MS_4B)| (GET_ADDRESS(instr) << 2);
+  return 0;
+}
+int jr (uint32_t instr){
+  PC = GET_ADDRESS(regs[GET_RS(instr)]);
+  return 0;
+}
+int andi(uint32_t instr){
+  regs[GET_RT(instr)] = regs[GET_RS(instr)] & ZERO_EXTEND(GET_IMM(instr));
+  return 0;
+}
+int jal(uint32_t instr){
+  regs[31]=PC+8;
+  PC = (PC & MS_4B) | (GET_ADDRESS(instr) << 2);
+  return 0;
+
+}
+int ori(uint32_t instr){
+  regs[GET_RT(instr)] = regs[GET_RS(instr)]| ZERO_EXTEND(GET_IMM(instr));
+  return 0;
+}
+int lui(uint32_t instr){
+  regs[GET_RT(instr)] = GET_IMM(instr) << 16;
+  return 0;
+}
+int lw(uint32_t instr){
+  regs[GET_RT(instr)] = GET_BIGWORD(mem,mem[regs[GET_RS(instr)]+SIGN_EXTEND(GET_IMM(instr))]);
+  return 0;
+}
+int sw(uint32_t instr){
+  printf("%x\n",regs[GET_RS(instr)]);
+  printf("%x\n", regs[GET_RT(instr)]);
+  printf("%x\n",GET_IMM(instr));
+  printf("%x\n", regs[GET_RS(instr)] + SIGN_EXTEND(GET_IMM(instr)));
+  SET_BIGWORD(mem, regs[GET_RS(instr)] + SIGN_EXTEND(GET_IMM(instr)), regs[GET_RT(instr)]);
   return 0;
 }
 int intrp_r(uint32_t instr){
-  if (GET_FUNCT(instr) == FUNCT_SYSCALL) return 1;
-  return 4;
-
+  switch(GET_FUNCT(instr)){
+  case FUNCT_SYSCALL :
+    return 1;
+  case FUNCT_JR :
+    return jr(instr);
+  case FUNCT_ADDU :
+    return addu(instr);
+  case FUNCT_SUBU :
+    return subu(instr);
+  case FUNCT_AND :
+    return and(instr);
+  case FUNCT_OR :
+    return or(instr);
+  case FUNCT_NOR :
+    return nor(instr);
+  case FUNCT_SLT :
+    return slt(instr);
+  case FUNCT_SLL :
+    return sll(instr);
+  case FUNCT_SRL : 
+    return srl(instr);
+  default:
+    return ERROR_UNKNOWN_FUNCT;
+  }
 }
 int interp_inst(uint32_t instr){
   //gets opcode by GET_UPCODE(instr) and do swicth case.r  
   switch(GET_OPCODE(instr)){
-  case FUNCT_SYSCALL :
-    return 1;
   case OPCODE_R:
     return intrp_r(instr);
+  case OPCODE_ADDIU:
+    return addiu(instr);
+  case OPCODE_BNE:
+    return bne(instr);
+  case OPCODE_BEQ:
+    return beq(instr);
+  case OPCODE_SLTI:
+    return slti(instr);
+  case OPCODE_ANDI:
+    return andi(instr);
+  case OPCODE_J:
+    return jump(instr);
+  case OPCODE_JAL:
+    return jal(instr);
+  case OPCODE_ORI:
+    return ori(instr);
+  case OPCODE_LUI:
+    return lui(instr);
+  case OPCODE_LW:
+    return lw(instr);
+  case OPCODE_SW:
+    return sw(instr);
   default : 
     return ERROR_UNKNOWN_OPCODE;
   }
-  
-  return 0;
 }
 int interp(){
   for (;;){
@@ -84,8 +215,8 @@ int interp(){
       printf("hello this is the syscall function\n");
       return 0;
     }
-    if (count == 4){ // temp for bugfixing
-      return 0;
+    if (count == ERROR_UNKNOWN_FUNCT){ // temp for bugfixing
+      return ERROR_UNKNOWN_FUNCT;
     }
     if (count == ERROR_UNKNOWN_OPCODE){ //error occured eg. unsupported function
       return ERROR_UNKNOWN_OPCODE;
@@ -100,15 +231,23 @@ int main(int argc, char *argv[]){
      return ERROR_INVALID_ARGS;
    }
    // checks return value of read cfg FILE.
-   if(read_config(argv[1])==0){ 
+   if(read_config(argv[1]) != 0) {
+     return ERROR_IO_ERROR;
+   } 
      //return value of elf_dump. 
-     int elfreturn = elf_dump(argv[2], &PC, &mem[0], MEMSZ);
-     if (elfreturn == 0){ 
-       regs[29] = MIPS_RESERVE+MEMSZ-4;
-       interp();
-     }
+   int elfreturn = elf_dump(argv[2], &PC, &mem[0], MEMSZ);
+   if (elfreturn != 0){
+     printf("elf_dump failed");
+     return 1;
+   } 
+   regs[29] = MIPS_RESERVE+MEMSZ-4;
+   // return value of interp
+   int interpreturn = interp();
+   if (interpreturn == 0){
+     return show_status();
    }
-   return show_status();
-
+   return interpreturn;
 }
+
+
 

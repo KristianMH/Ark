@@ -1,0 +1,4 @@
+bne $t5,$t4,add
+	nop
+
+add
