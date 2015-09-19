@@ -65,7 +65,7 @@ int addu(uint32_t instr){
   return 0;
 }
 int addiu(uint32_t instr){
-  regs[GET_RT(instr)] = regs[GET_RS(instr)]+GET_IMM(instr);
+  regs[GET_RT(instr)] = regs[GET_RS(instr)]+SIGN_EXTEND(GET_IMM(instr));
   return 0;
 }
 int bne(uint32_t instr){
@@ -113,7 +113,7 @@ int nor(uint32_t instr){
   return 0;
 }
 int jump(uint32_t instr){
-  PC = (PC & MS_4B)| (GET_ADDRESS(instr) << 2);
+  PC = (PC & MS_4B) | (GET_ADDRESS(instr) << 2);
   return 0;
 }
 int jr (uint32_t instr){
@@ -125,8 +125,10 @@ int andi(uint32_t instr){
   return 0;
 }
 int jal(uint32_t instr){
-  regs[31]=PC+8;
-  PC = (PC & MS_4B) | (GET_ADDRESS(instr) << 2);
+  printf("%x\n", PC);
+  regs[31]=PC+4;
+  PC = (((PC) & MS_4B) | (GET_ADDRESS(instr) << 2));
+  printf("%x\n", PC);
   return 0;
 
 }
@@ -139,20 +141,16 @@ int lui(uint32_t instr){
   return 0;
 }
 int lw(uint32_t instr){
-  regs[GET_RT(instr)] = GET_BIGWORD(mem,mem[regs[GET_RS(instr)]+SIGN_EXTEND(GET_IMM(instr))]);
+  regs[GET_RT(instr)] = GET_BIGWORD(mem,regs[GET_RS(instr)]+SIGN_EXTEND(GET_IMM(instr)));
   return 0;
 }
 int sw(uint32_t instr){
-  printf("%x\n",regs[GET_RS(instr)]);
-  printf("%x\n", regs[GET_RT(instr)]);
-  printf("%x\n",GET_IMM(instr));
-  printf("%x\n", regs[GET_RS(instr)] + SIGN_EXTEND(GET_IMM(instr)));
   SET_BIGWORD(mem, regs[GET_RS(instr)] + SIGN_EXTEND(GET_IMM(instr)), regs[GET_RT(instr)]);
   return 0;
 }
 int intrp_r(uint32_t instr){
   switch(GET_FUNCT(instr)){
-  case FUNCT_SYSCALL :
+  case FUNCT_SYSCALL:
     return 1;
   case FUNCT_JR :
     return jr(instr);
