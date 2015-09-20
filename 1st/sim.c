@@ -234,7 +234,7 @@ int interp(){
     if (count == 1){ //sees the syscall function;
       return 0;
     }
-    if (count == ERROR_UNKNOWN_FUNCT){ // temp for bugfixing
+    if (count == ERROR_UNKNOWN_FUNCT){ // unknown Funct in R-type instruction
       return ERROR_UNKNOWN_FUNCT;
     }
     if (count == ERROR_UNKNOWN_OPCODE){ //error occured eg. unsupported function
