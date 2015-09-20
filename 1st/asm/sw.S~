@@ -1,3 +1,0 @@
-sw $t5,20($t4)
-syscall
-	

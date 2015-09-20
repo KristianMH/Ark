@@ -1,2 +1,0 @@
-addiu $v0,$5,20
-syscall

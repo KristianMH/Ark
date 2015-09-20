@@ -1,2 +1,0 @@
-subu $v0,$t5,$t5
-syscall
