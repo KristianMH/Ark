@@ -126,7 +126,7 @@ int nor(uint32_t instr){
   return 0;
 }
 
-int jump(uint32_t instr){
+int j(uint32_t instr){
   PC = (PC & MS_4B) | (GET_ADDRESS(instr) << 2);
   return 0;
 }
@@ -211,7 +211,7 @@ int interp_inst(uint32_t instr){
   case OPCODE_ANDI:
     return andi(instr);
   case OPCODE_J:
-    return jump(instr);
+    return j(instr);
   case OPCODE_JAL:
     return jal(instr);
   case OPCODE_ORI:
