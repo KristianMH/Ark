@@ -29,11 +29,12 @@ int show_status(){
   
   return 0;
 }
-
+// reads the variables from cfg file
 int read_config_stream(FILE *file){
   for (int i = 8; i < 15; i++){
     uint32_t v;
     int count = fscanf(file, "%u", &v);
+    // checks if fscanf failed to read
     if (count != 1){
       return 1;
     }
@@ -60,94 +61,114 @@ int read_config(const char *path) {
   }
   return 0;
 }
+
 int addu(uint32_t instr){
   regs[GET_RD(instr)] = regs[GET_RS(instr)]+regs[GET_RT(instr)];
   return 0;
 }
+
 int addiu(uint32_t instr){
   regs[GET_RT(instr)] = regs[GET_RS(instr)]+SIGN_EXTEND(GET_IMM(instr));
   return 0;
 }
+
 int bne(uint32_t instr){
   if (regs[GET_RT(instr)] != regs[GET_RS(instr)]){
     PC += (SIGN_EXTEND(GET_IMM(instr)) << 2)  ; 
 }
   return 0;
 }
+
 int beq(uint32_t instr){
    if (regs[GET_RT(instr)] == regs[GET_RS(instr)]){
     PC += (SIGN_EXTEND(GET_IMM(instr)) << 2) ; 
    }
   return 0;
 }
+
 int subu(uint32_t instr){
   regs[GET_RD(instr)] = regs[GET_RS(instr)]-regs[GET_RT(instr)];
   return 0;
 }
+
 int slt(uint32_t instr){
   regs[GET_RD(instr)] = regs[GET_RS(instr)] < regs[GET_RT(instr)] ? 1:0;
   return 0;
 }
+
 int sll(uint32_t instr){
   regs[GET_RD(instr)] = regs[GET_RT(instr)] << GET_SHAMT(instr);
   return 0;
 }
+
 int srl(uint32_t instr){
   regs[GET_RD(instr)] = regs[GET_RS(instr)] >> GET_SHAMT(instr);
   return 0;
 }
+
 int slti(uint32_t instr){
   regs[GET_RT(instr)] = regs[GET_RS(instr)] < GET_IMM(instr) ? 1:0;
   return 0;      
 }
+
 int and(uint32_t instr){
   regs[GET_RD(instr)] = regs[GET_RS(instr)] & regs[GET_RT(instr)];
   return 0;
 }
+
 int or(uint32_t instr){
   regs[GET_RD(instr)] = regs[GET_RS(instr)] | regs[GET_RT(instr)];
   return 0;
 }
+
 int nor(uint32_t instr){
   regs[GET_RD(instr)] = ~(regs[GET_RS(instr)] | regs[GET_RT(instr)]);
   return 0;
 }
+
 int jump(uint32_t instr){
   PC = (PC & MS_4B) | (GET_ADDRESS(instr) << 2);
   return 0;
 }
+
 int jr (uint32_t instr){
   PC = GET_ADDRESS(regs[GET_RS(instr)]);
   return 0;
 }
+
 int andi(uint32_t instr){
   regs[GET_RT(instr)] = regs[GET_RS(instr)] & ZERO_EXTEND(GET_IMM(instr));
   return 0;
 }
+
 int jal(uint32_t instr){
-  printf("%x\n", PC);
+  // only +4 due to +4 in intrp function.
   regs[31]=PC+4;
   PC = (((PC) & MS_4B) | (GET_ADDRESS(instr) << 2));
-  printf("%x\n", PC);
   return 0;
 
 }
+
 int ori(uint32_t instr){
   regs[GET_RT(instr)] = regs[GET_RS(instr)]| ZERO_EXTEND(GET_IMM(instr));
   return 0;
 }
+
 int lui(uint32_t instr){
   regs[GET_RT(instr)] = GET_IMM(instr) << 16;
   return 0;
 }
+
 int lw(uint32_t instr){
   regs[GET_RT(instr)] = GET_BIGWORD(mem,regs[GET_RS(instr)]+SIGN_EXTEND(GET_IMM(instr)));
   return 0;
 }
+
 int sw(uint32_t instr){
   SET_BIGWORD(mem, regs[GET_RS(instr)] + SIGN_EXTEND(GET_IMM(instr)), regs[GET_RT(instr)]);
   return 0;
 }
+// interps alle R-functions
 int intrp_r(uint32_t instr){
   switch(GET_FUNCT(instr)){
   case FUNCT_SYSCALL:
@@ -175,7 +196,7 @@ int intrp_r(uint32_t instr){
   }
 }
 int interp_inst(uint32_t instr){
-  //gets opcode by GET_UPCODE(instr) and do swicth case.r  
+  //gets opcode by GET_UPCODE(instr) and do swicth case 
   switch(GET_OPCODE(instr)){
   case OPCODE_R:
     return intrp_r(instr);
@@ -206,11 +227,11 @@ int interp_inst(uint32_t instr){
   }
 }
 int interp(){
+  //for-ever loop
   for (;;){
     instr_cnt ++;
     int count = interp_inst(GET_BIGWORD(mem,PC)); // gets instr from PC in mem array
     if (count == 1){ //sees the syscall function;
-      printf("hello this is the syscall function\n");
       return 0;
     }
     if (count == ERROR_UNKNOWN_FUNCT){ // temp for bugfixing
@@ -238,6 +259,7 @@ int main(int argc, char *argv[]){
      printf("elf_dump failed");
      return 1;
    } 
+   // sets the stack-pointer
    regs[29] = MIPS_RESERVE+MEMSZ-4;
    // return value of interp
    int interpreturn = interp();
