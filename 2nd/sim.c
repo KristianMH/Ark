@@ -3,7 +3,7 @@
 #include <stdint.h>
 #include "elf.h"
 #include <stdlib.h>
-
+#include <stdbool.h>
 #define ERROR_INVALID_ARGS 1
 #define ERROR_IO_ERROR 2
 #define ERROR_UNKNOWN_OPCODE 3
@@ -14,25 +14,27 @@ static uint32_t PC = 0;
 static uint32_t regs[32];
 static size_t instr_cnt = 0;
 static unsigned char mem[640*1024];
-static size_t cycles = 0;
+static size_t cycles_cnt = 0;
 struct preg_if_id {
   uint32_t inst;
   
 };
+static struct preg_if_id if_id;
 struct preg_id_ex {
   bool mem_read;
   bool mem_write;
   bool reg_write;
-  uint32_t rt = GET_RT(if_id.inst);
-  uint32_t rs_value = regs[GET_RS(if_id.inst)];
-  uint32_t rt_value = regs[rt];
-  uint32_t sign_ext_imm = SIGN_EXTEND(GET_IMM(if_id.inst));
+  uint32_t rt;// = GET_RT(if_id.inst);
+  uint32_t rs_value;// = regs[GET_RS(if_id.inst)];
+  uint32_t rt_value;// = regs[rt];
+  uint32_t sign_ext_imm; //= SIGN_EXTEND(GET_IMM(if_id.inst));
   uint32_t funct;
 };
-static struct preg_if_id if_id;
-static struct preg_if_id id_ex;
+
+static struct preg_id_ex id_ex;
 int show_status(){
   printf("Executed %zu instruction(s).\n", instr_cnt); 
+  printf("Executed %zu cycle(s).\n", cycles_cnt);
   printf("PC = 0x%x\n", PC);
   printf("at = 0x%x\n", regs[1]);
   printf("v0 = 0x%x\n", regs[2]);
@@ -246,7 +248,7 @@ int interp_inst(uint32_t instr){
 }
 void interp_if(){
   uint32_t addr = GET_BIGWORD(mem,PC);
-  preg_if_id.inst = addr;
+  if_id.inst = addr;
   PC+=4;
   instr_cnt ++;
 }
@@ -266,7 +268,7 @@ int interp_control(){
     id_ex.funct = FUNCT_ADD;
     return 0;
   case OPCODE_SW:
-    id_ex.mem.read = 0;
+    id_ex.mem_read = 0;
     id_ex.mem_write = 1;
     id_ex.reg_write = 0;
     id_ex.funct = FUNCT_ADD;
@@ -276,10 +278,10 @@ int interp_control(){
   }
 }
 int interp_id(){
-  if_ex.rt = GET_RT(if_id.inst);
-  if_ex.rs_value = regs[GET_RS(if_id.inst)];
-  if_ex.rt_value = regs[rt];
-  if_ex.sign_ext_imm = SIGN_EXTEND(GET_IMM(if_id.inst));
+  id_ex.rt = GET_RT(if_id.inst);
+  id_ex.rs_value = regs[GET_RS(if_id.inst)];
+  id_ex.rt_value = regs[id_ex.rt];
+  id_ex.sign_ext_imm = SIGN_EXTEND(GET_IMM(if_id.inst));
   int returnvalue = interp_control();
   if (returnvalue != 0){
     return returnvalue;
@@ -293,12 +295,14 @@ int cycles(){
   }
   interp_if();
   //return SAW_SYSCALL
+  show_status();
   return 0;
 }
 int interp(){
   //for-ever loop
+  int cyclesreturn;
   for (;;){
-      cycles ++;
+    cycles_cnt ++;
       /*int count = interp_inst(GET_BIGWORD(mem,PC)); // gets instr from PC in mem array
         if (count == 1){ //sees the syscall function;
         return 0;
@@ -311,7 +315,7 @@ int interp(){
         }
         PC +=4;
     }*/
-      int cyclesreturn = cycles();
+      cyclesreturn = cycles();
       if (cyclesreturn != 0) break;
   }
   if (cyclesreturn == SAW_SYSCALL){
