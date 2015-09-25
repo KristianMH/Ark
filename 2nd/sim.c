@@ -17,21 +17,36 @@ static unsigned char mem[640*1024];
 static size_t cycles_cnt = 0;
 struct preg_if_id {
   uint32_t inst;
-  
 };
 static struct preg_if_id if_id;
 struct preg_id_ex {
+  bool alu_src;
   bool mem_read;
   bool mem_write;
   bool reg_write;
-  uint32_t rt;// = GET_RT(if_id.inst);
+  uint32_t rt; // = GET_RT(if_id.inst);
   uint32_t rs_value;// = regs[GET_RS(if_id.inst)];
   uint32_t rt_value;// = regs[rt];
   uint32_t sign_ext_imm; //= SIGN_EXTEND(GET_IMM(if_id.inst));
   uint32_t funct;
 };
-
 static struct preg_id_ex id_ex;
+struct preg_ex_mem {
+  bool mem_read;
+  bool mem_write;
+  bool reg_write;
+  uint32_t rt;// = GET_RT(if_id.inst);
+  uint32_t rt_value;// = regs[rt];
+  int alu_res; //result of alu()
+};
+static struct preg_ex_mem ex_mem;
+struct preg_mem_wb {
+  bool reg_write;
+  uint32_t rt;
+  uint32_t read_data;
+  int alu_res; // result of alu()
+};
+static struct preg_mem_wb mem_wb;
 int show_status(){
   printf("Executed %zu instruction(s).\n", instr_cnt); 
   printf("Executed %zu cycle(s).\n", cycles_cnt);
@@ -62,7 +77,28 @@ int read_config_stream(FILE *file){
 
   return 0;
 }
-
+void show_regs_status(){
+  printf("cycle nr. = %zu\n",instr_cnt);
+  printf("VALUES OF IF/ID\n");
+  printf("value of IF/ID.inst = %x\n",if_id.inst);
+  printf("VALUES OF ID/EX\n");
+  printf("value of ID/EX.mem_read = %d\n",id_ex.mem_read);
+  printf("value of ID/EX.mem_write = %d\n", id_ex.mem_write);
+  printf("value of ID/EX.reg_write = %d\n", id_ex.reg_write);
+  printf("value of ID/EX.rt = %x\n",id_ex.rt);
+  printf("value of ID/EX.rs = %x\n",id_ex.rs_value);
+  printf("value of ID/EX.rt_value = %x\n",id_ex.rt_value);
+  printf("value of ID/EX.sign_ext_imm = %x\n", id_ex.sign_ext_imm);
+  printf("value of ID/EX.funct = %x\n",id_ex.funct);
+  printf("VALUES OF EX/MEM\n");  
+  printf("value of EX/MEM.mem_read = %d\n", ex_mem.mem_read);
+  printf("value of EX/MEM.mem_write = %d\n", ex_mem.mem_write);
+  printf("value of EX/MEM.reg_write = %d\n", ex_mem.reg_write);
+  printf("value of EX/MEM.rt = %x\n",ex_mem.rt);
+  printf("value of EX/MEM.rt_value = %x\n",ex_mem.rt_value);
+  printf("value of EX/MEM.alu_res = %x\n",ex_mem.alu_res);
+  printf("END OF CYCLE\n");
+}
 int read_config(const char *path) {
   
   FILE *fdesc = fopen(path, "r");
@@ -246,6 +282,25 @@ int interp_inst(uint32_t instr){
     return ERROR_UNKNOWN_OPCODE;
   }
 }
+void interp_wb(){
+  if (mem_wb.reg_write == 1){
+    if (mem_wb.rt != 0){
+      regs[mem_wb.rt]=mem_wb.read_data;
+    }
+  }
+}
+void interp_mem(){
+  mem_wb.reg_write = ex_mem.reg_write;
+  mem_wb.rt = ex_mem.rt;
+  mem_wb.alu_src = ex_mem.alu_src;
+  if (ex_mem.mem_read == 1){
+    mem_wb.read_data = GET_BIGWORD(mem,ex_mem.alu_res);
+  }
+  if (ex_mem.mem_write == 1) {
+    mem_wb.read_data = SET_BIGWORD(mem,ex_mem.alu_res,ex_mem.rt_value);
+  }
+  
+}
 void interp_if(){
   uint32_t addr = GET_BIGWORD(mem,PC);
   if_id.inst = addr;
@@ -266,16 +321,53 @@ int interp_control(){
     id_ex.mem_write = 0;
     id_ex.reg_write = 0;
     id_ex.funct = FUNCT_ADD;
+    id_ex.alu_src = 1;
     return 0;
   case OPCODE_SW:
     id_ex.mem_read = 0;
     id_ex.mem_write = 1;
     id_ex.reg_write = 0;
     id_ex.funct = FUNCT_ADD;
+    id_ex.alu_src = 1;
+    return 0;
+  case OPCODE_R:
+    id_ex.alu_src = 0;
+    id_ex.mem_read = 0;
+    id_ex.mem_write = 0;
+    id_ex.reg_write = 1;
+    id_ex.funct = GET_FUNCT(if_id.inst);
     return 0;
   default:
     return ERROR_UNKNOWN_OPCODE;
   }
+}
+int alu(){
+  if (id_ex.alu_src == 1) {
+    
+  }
+  switch(id_ex.funct){
+  case FUNCT_ADD:
+    ex_mem.alu_res = id_ex.sign_ext_imm + id_ex.rs_value;
+    return 0;
+  case 0:
+    return 0;
+  default:
+    return ERROR_UNKNOWN_FUNCT;
+  }
+  
+}
+int interp_ex(){
+  ex_mem.mem_read = id_ex.mem_read;
+  ex_mem.mem_write = id_ex.mem_write;
+  ex_mem.reg_write = id_ex.reg_write;
+  int alureturn = alu();
+  if (alureturn != 0) {
+    return alureturn;
+  }
+  if (GET_FUNCT(if_id.inst) == FUNCT_SYSCALL) {
+    return SAW_SYSCALL;
+  }
+  return 0;
 }
 int interp_id(){
   id_ex.rt = GET_RT(if_id.inst);
@@ -288,14 +380,19 @@ int interp_id(){
   }
   return 0;
 }
-int cycles(){
-  int returnvalue = interp_id();
+int cycle(){
+  interp_wb();
+  interp_mem();
+  int returnvalue = interp_ex();
+  if (returnvalue != 0) {
+    return returnvalue;
+  }
+  returnvalue = interp_id();
   if (returnvalue != 0){
     return returnvalue;
   }
   interp_if();
-  //return SAW_SYSCALL
-  show_status();
+  show_regs_status();
   return 0;
 }
 int interp(){
@@ -303,20 +400,8 @@ int interp(){
   int cyclesreturn;
   for (;;){
     cycles_cnt ++;
-      /*int count = interp_inst(GET_BIGWORD(mem,PC)); // gets instr from PC in mem array
-        if (count == 1){ //sees the syscall function;
-        return 0;
-        }
-        if (count == ERROR_UNKNOWN_FUNCT){ // unknown Funct in R-type instruction
-        return ERROR_UNKNOWN_FUNCT;
-        }
-        if (count == ERROR_UNKNOWN_OPCODE){ //error occured eg. unsupported function
-        return ERROR_UNKNOWN_OPCODE;
-        }
-        PC +=4;
-    }*/
-      cyclesreturn = cycles();
-      if (cyclesreturn != 0) break;
+    cyclesreturn = cycle();
+    if (cyclesreturn != 0) break;
   }
   if (cyclesreturn == SAW_SYSCALL){
     return 0;
