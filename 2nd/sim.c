@@ -10,10 +10,10 @@
 #define ERROR_UNKNOWN_FUNCT 4
 #define MEMSZ 640*1024
 #define SAW_SYSCALL 5
-static uint32_t PC = 0;
+static uint32_t PC;
 static uint32_t regs[32];
 static size_t instr_cnt = 0;
-static unsigned char mem[640*1024];
+static unsigned char mem[MEMSZ];
 static size_t cycles_cnt = 0;
 struct preg_if_id {
   uint32_t inst;
@@ -65,7 +65,7 @@ int show_status(){
 }
 // reads the variables from cfg file
 int read_config_stream(FILE *file){
-  for (int i = 8; i < 15; i++){
+  for (int i = 8; i < 16; i++){
     uint32_t v;
     int count = fscanf(file, "%u", &v);
     // checks if fscanf failed to read
@@ -187,7 +187,7 @@ int j(uint32_t instr){
 }
 
 int jr (uint32_t instr){
-  PC = GET_ADDRESS(regs[GET_RS(instr)]);
+  PC = regs[GET_RS(instr)];
   return 0;
 }
 
@@ -198,8 +198,8 @@ int andi(uint32_t instr){
 
 int jal(uint32_t instr){
   // only +4 due to +4 in intrp function.
-  regs[31]=PC+4;
-  PC = (((PC) & MS_4B) | (GET_ADDRESS(instr) << 2));
+  regs[31]=PC;
+  PC = (((PC+4) & MS_4B) | (GET_ADDRESS(instr) << 2));
   return 0;
 
 }
@@ -425,7 +425,7 @@ int main(int argc, char *argv[]){
      return 1;
    } 
    // sets the stack-pointer
-   regs[29] = MIPS_RESERVE+MEMSZ-4;
+   regs[29] = MIPS_RESERVE+MEMSZ;
    // return value of interp
    int interpreturn = interp();
    if (interpreturn == 0){
