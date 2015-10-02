@@ -358,14 +358,6 @@ void interp_if(){
   instr_cnt ++;
 }
 int interp_control(){
-  // does nothing. nop
-  /*if (if_id.inst == 0){
-    id_ex.mem_read = 0 ;
-    id_ex.mem_write = 0;
-    id_ex.reg_write = 0;
-    id_ex.funct = 0;
-    return 0;
-    }*/
   switch (GET_OPCODE(if_id.inst)){
   case OPCODE_LW:
     id_ex.mem_read = 1;
@@ -439,7 +431,7 @@ int interp_control(){
     id_ex.rs_value = if_id.next_pc;
     id_ex.rt_value = 0;
     id_ex.jump_target = (if_id.next_pc & MS_4B) | (GET_ADDRESS(if_id.inst) << 2);
-    return 0;
+    return 0; 
   case OPCODE_ADDI:
     id_ex.reg_write = 1;
     id_ex.reg_dst = GET_RT(if_id.inst);
@@ -488,6 +480,7 @@ int interp_control(){
 }
 int alu(){
   uint32_t second;
+  // chose immediate or rt value
   if (id_ex.alu_src == 1) {
     second = id_ex.sign_ext_imm;
   } else {
