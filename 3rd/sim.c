@@ -22,6 +22,7 @@ struct preg_if_id {
 static struct preg_if_id if_id;
 struct preg_id_ex {
   bool branch;
+  bool beq;
   bool alu_src;
   bool mem_read;
   bool mem_write;
@@ -46,6 +47,7 @@ struct preg_ex_mem {
   bool reg_write;
   bool mem_to_reg;
   bool branch;
+  bool beq;
   uint32_t rt;// = GET_RT(if_id.inst);
   uint32_t rt_value;// = regs[rt];
   uint32_t alu_res; //result of alu()
@@ -233,7 +235,7 @@ int interp_control(){
     id_ex.shamt = GET_SHAMT(if_id.inst);
     if (id_ex.funct == FUNCT_JR) {
       id_ex.jump = 1;
-      id_ex.jump_target = regs[GET_RS(if_id.inst)];
+      id_ex.jump_target = regs[id_ex.rs];
     }
     return 0;
   case OPCODE_BEQ:
@@ -242,6 +244,7 @@ int interp_control(){
     id_ex.reg_write = 0;
     id_ex.branch = 1;
     id_ex.jump = 0;
+    id_ex.beq = 1;
     id_ex.funct = FUNCT_SUB;
     return 0;
   case OPCODE_BNE:
@@ -382,6 +385,7 @@ int interp_ex(){
   ex_mem.reg_dst = id_ex.reg_dst;
   ex_mem.branch = id_ex.branch;
   ex_mem.rt_value = id_ex.rt_value;
+  ex_mem.beq = id_ex.beq;
   if (ex_mem.branch) {
     ex_mem.branch_target = id_ex.next_pc + (id_ex.sign_ext_imm << 2);
   }
@@ -450,7 +454,7 @@ int detectmemHazard(){
       id_ex.rt_value = mem_wb.alu_res;
     }
   }
-  if (GET_FUNCT(if_id.inst) == FUNCT_JR && mem_wb.reg_write && mem_wb.reg_dst == 31) {
+  if (id_ex.rs == 31 && mem_wb.reg_write && mem_wb.reg_dst == 31) {
     id_ex.jump_target = mem_wb.alu_res;
     returnvalue++;
   }
@@ -476,25 +480,28 @@ int cycle(){
     return returnvalue;
   }
   interp_if();
+  forward();
   // beq
-  if (ex_mem.branch && ex_mem.alu_res == 0) {
+  if (ex_mem.branch && ex_mem.alu_res == 0 && ex_mem.beq) {
     PC = ex_mem.branch_target;
-    if_id.inst = 0;
+    // if_id.inst = 0; // SHOULD WE FLUSH ID/EX
     instr_cnt --;
   }
   // bne
-  if (ex_mem.branch && ex_mem.alu_res != 0){
+  if (ex_mem.branch && ex_mem.alu_res != 0 && !(ex_mem.beq)){
+    printf("BNEEE \n \n \n");
     PC = ex_mem.branch_target;
-    if_id.inst = 0;
+    // if_id.inst = 0; SHOULD WE FLUSH ID/EX
     instr_cnt --;
-  }
+    }
   // jump
   if (id_ex.jump ) {
     PC = id_ex.jump_target;
+    return 0;
   }
   // for bug-fixing ;
-  show_regs_status();
-  forward();
+  //show_regs_status();
+
   return 0;
 }
 int interp(){
