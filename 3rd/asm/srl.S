@@ -1,4 +1,4 @@
-# v0 gets the value (0x4)
+# v0 gets the value (0xa)
 
 srl $v0, $t5, 2
 nop
